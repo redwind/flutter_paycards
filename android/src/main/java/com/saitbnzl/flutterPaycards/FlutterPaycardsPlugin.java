@@ -1,9 +1,15 @@
 package com.saitbnzl.flutterPaycards;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
+import io.flutter.embedding.engine.plugins.FlutterPlugin;
+import io.flutter.embedding.engine.plugins.activity.ActivityAware;
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
@@ -13,16 +19,19 @@ import io.flutter.plugin.common.PluginRegistry.Registrar;
 
 import com.saitbnzl.flutterPaycards.sdk.Card;
 import com.saitbnzl.flutterPaycards.sdk.ScanCardIntent;
-import com.saitbnzl.flutterPaycards.sdk.camera.CameraConfigurationUtils;
 import com.saitbnzl.flutterPaycards.sdk.ui.ScanCardActivity;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /** FlutterPaycardsPlugin */
-public class FlutterPaycardsPlugin implements MethodCallHandler, PluginRegistry.ActivityResultListener {
-  private final Registrar mRegistrar;
+public class FlutterPaycardsPlugin implements FlutterPlugin, ActivityAware, MethodCallHandler, PluginRegistry.ActivityResultListener {
+  private Registrar mRegistrar;
   private Result mResult;
+  private Activity activity;
+  private Context context;
+
+  private MethodChannel channel;
 
   static final int REQUEST_CODE_SCAN_CARD = 1;
 
@@ -45,7 +54,15 @@ public class FlutterPaycardsPlugin implements MethodCallHandler, PluginRegistry.
       return;
     }
     mResult = result;
-    Activity activity = mRegistrar.activity();
+    Activity activity = null;
+    if (mRegistrar != null) {
+      activity = mRegistrar.activity();
+    }
+    if (activity == null) {
+      activity = this.activity;
+    }
+    
+
     if (call.method.equals("startRecognizer")) {
       Intent scanIntent = new Intent(activity, ScanCardActivity.class);
       activity.startActivityForResult(scanIntent, REQUEST_CODE_SCAN_CARD);
@@ -90,5 +107,49 @@ public class FlutterPaycardsPlugin implements MethodCallHandler, PluginRegistry.
       return true;
     }
     return false;
+  }
+
+  public FlutterPaycardsPlugin() {
+    // All Android plugin classes must support a no-args
+    // constructor. A no-arg constructor is provided by
+    // default without declaring one, but we include it here for
+    // clarity.
+    //
+    // At this point your plugin is instantiated, but it
+    // isn't attached to any Flutter experience. You should not
+    // attempt to do any work here that is related to obtaining
+    // resources or manipulating Flutter.
+  }
+
+  @Override
+  public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
+    channel = new MethodChannel(binding.getBinaryMessenger(), "flutter_paycards");
+    channel.setMethodCallHandler(this);
+    context = binding.getApplicationContext();
+  }
+
+  @Override
+  public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+    channel.setMethodCallHandler(null);
+  }
+
+  @Override
+  public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
+    this.activity = binding.getActivity();
+  }
+
+  @Override
+  public void onDetachedFromActivityForConfigChanges() {
+    activity = null;
+  }
+
+  @Override
+  public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) {
+    activity = binding.getActivity();
+  }
+
+  @Override
+  public void onDetachedFromActivity() {
+    activity = null;
   }
 }
